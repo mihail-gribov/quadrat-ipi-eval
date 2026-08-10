@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.venv/
+
+# output of a measurement campaign: results, scores, rendered reports
+eval-out/
+
+# the corpus is a separate artifact
+data/
+
+# stray screenshots and scratch captures
+*.png
+*.jpg

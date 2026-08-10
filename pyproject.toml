@@ -1,0 +1,53 @@
+[project]
+name = "quadrat-ipi-eval"
+version = "1.0.0"
+description = "Run any prompt-injection detector over the Quadrat-IPI dataset and get a comparable report"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+keywords = ["prompt-injection", "evaluation", "llm-security"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Topic :: Security",
+]
+
+# CORE, and each one for a reason a reader can check.
+#
+# `blingfire` is not an optional nicety. Every aperture is cut on sentence boundaries, and
+# `window.sentence_spans` falls back to a regex when the import fails -- which produces a DIFFERENT
+# split, therefore different windows, therefore different scores. A dependency whose absence
+# silently changes the measurement is a core dependency.
+#
+# `huggingface_hub` fetches the corpus on first run, so the harness works from a bare clone.
+dependencies = [
+    "blingfire>=0.1.8",
+    "huggingface_hub>=0.23",
+]
+
+# The adapters, grouped by what they actually need. Measuring one hosted detector should not pull
+# down a deep-learning stack, so nothing here is installed by default.
+[project.optional-dependencies]
+local = ["torch>=2.0", "transformers>=4.40"]
+picket = ["aicordon>=0.1.0"]
+all = ["torch>=2.0", "transformers>=4.40", "aicordon>=0.1.0"]
+
+[dependency-groups]
+# Not needed to run the harness -- only to check that it runs. `uv sync` installs them; a plain
+# `pip install quadrat-ipi-eval` does not.
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[project.scripts]
+quadrat-run = "quadrat.run:main"
+quadrat-compare = "quadrat.compare:main"
+quadrat-rescore = "quadrat.rescore:main"
+quadrat-latency = "quadrat.latency:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["quadrat"]
