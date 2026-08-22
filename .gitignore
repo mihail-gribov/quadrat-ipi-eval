@@ -11,3 +11,6 @@ data/
 # stray screenshots and scratch captures
 *.png
 *.jpg
+
+# working notes on what is still wrong: ours, not part of the published harness
+TODO/

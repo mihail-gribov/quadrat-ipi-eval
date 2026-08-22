@@ -217,6 +217,11 @@ your row will sit next to:
 | `floor` ⚠ binary | whole document | 6.5%† | 6.5%† | 2% (92) | 0%–56% | bare 3.1% | unauthorized_action 0.9% |
 | `picket` ⚠ binary | whole document | 12.5%† | 12.5%† | 8% (92) | 0%–76% | bare 5.8% | execute 4.5% |
 
+The last two columns name a value of each axis, and the keys are only readable if you know what they
+stand for: `pretext`, `inference`, `execute`, `unauthorized_action` are values, not shorthand. What
+each of the twenty means, with a specimen quoted out of the corpus, is one page:
+**[TAXONOMY.md](https://huggingface.co/datasets/mihailgribov/quadrat-ipi/blob/main/TAXONOMY.md)**.
+
 The ranking is **not the same at the two budgets** — `piguard` is fifth when a false alarm is
 expensive and first when it is merely unwelcome — so "X beats Y" without an operating point is not
 a statement. `floor` is five regexes for the most quoted injection phrases: not a competitor, but

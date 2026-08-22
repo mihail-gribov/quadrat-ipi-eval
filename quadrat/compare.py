@@ -181,14 +181,24 @@ def collect(results_dir, slice_name, dataset=None):
 
 # --------------------------------------------------------------------------- shaping
 
-def roster_rows(reg, rows):
-    """Registry x results: one entry per adapter, measured or not."""
+def roster_rows(reg, rows, measured_only=False):
+    """Registry x results: one entry per adapter, measured or not.
+
+    MEASURED_ONLY IS FOR A PUBLISHED REPORT. Locally the unmeasured rows are the useful half of
+    this table -- an adapter nobody has run is exactly what a reader of their own working copy
+    needs pointed out. In a release the same row says something else entirely: it names a third
+    party's detector, and all it can report about it is that we have an adapter for it. That is a
+    statement about our intentions rather than a measurement, and it ships under a licence and a
+    version number as though it were one. A published comparison carries what was measured.
+    """
     got = collections.defaultdict(list)
     for r in rows:
         got[r.get("detector")].append(r)
     out = []
     for name, meta in sorted(reg.items()):
         runs = sorted(got.get(name, []), key=lambda r: -r.get("mean_recall", 0))
+        if measured_only and not runs:
+            continue
         out.append({"name": name, **meta, "runs": runs,
                     "status": "measured" if runs else "adapter present, no measurement"})
     return out
@@ -937,7 +947,7 @@ def peers_at(results_dir, slice_name, target_fpr, exclude, dataset=None, root=No
 
 
 def build(results_dir=RESULTS, slice_name="all", dataset=None, derive=True,
-          points=mt.OPERATING_POINTS, interval_hi=INTERVAL_HI):
+          points=mt.OPERATING_POINTS, interval_hi=INTERVAL_HI, measured_only=False):
     all_rows, stale, fp = collect(pathlib.Path(results_dir), slice_name, dataset)
     if derive and all_rows:
         n = ensure_derived(all_rows, results_dir)
@@ -948,7 +958,7 @@ def build(results_dir=RESULTS, slice_name="all", dataset=None, derive=True,
     ctx = {"rows": rows, "others": others, "all_rows": all_rows, "stale": stale,
             "dataset": fp, "slice": slice_name, "points": list(points),
             "interval_hi": interval_hi, "aperture": headline_aperture(rows),
-            "roster": roster_rows(reg, all_rows), "registry": reg,
+            "roster": roster_rows(reg, all_rows, measured_only), "registry": reg,
             "own_points": None,   # filled in below; it needs a finished ctx
             # THE NEWEST MEASUREMENT, not the wall clock. A render time made every rebuild
             # produce different bytes for identical inputs -- eleven pages to re-upload for a
@@ -1007,10 +1017,13 @@ def main():
                     help="skip backfilling curves and operating points from saved scores")
     ap.add_argument("--interval", type=float, default=INTERVAL_HI,
                     help="upper FPR bound of the interval the aperture is chosen on")
+    ap.add_argument("--measured-only", action="store_true",
+                    help="leave registered-but-unmeasured adapters out of the roster: what a "
+                         "published comparison carries")
     a = ap.parse_args()
 
     ctx = build(a.results, a.slice, a.dataset, derive=not a.no_curves,
-                interval_hi=a.interval)
+                interval_hi=a.interval, measured_only=a.measured_only)
     if not ctx["rows"]:
         print(f"no results on slice {a.slice}"
               + (f" ({len(ctx['stale'])} stale)" if ctx["stale"] else ""))
