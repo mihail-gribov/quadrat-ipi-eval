@@ -139,3 +139,38 @@ def test_missing_corpus_is_an_error_not_a_download(tmp_path):
             check=False)
     assert r.returncode != 0
     assert "corpus incomplete" in (r.stdout + r.stderr)
+
+
+# --------------------------------------------------------------------------- the cell ramp
+
+def test_ramp_sign_matches_the_claim():
+    """Above the hinge the cell greens, below it it warms, and nothing crosses over.
+
+    The grid's colour IS a claim -- held or open -- so a step on the wrong side of the hinge would
+    state the opposite of the number written inside it."""
+    from quadrat import figures as fg
+    for theme in ("light", "dark"):
+        card = dict(zip(fg.TOKENS, fg.PALETTES[theme]))["card"]
+        # DIRECTION, NOT DISTANCE. A step is a light tint of its hue, so in plain RGB it is far
+        # from the deep endpoint it came from and can sit nearer the other one -- which says
+        # nothing. What the claim rests on is which way the tile departs from the page: the
+        # chroma offset from `card` has to point along its own end and away from the other.
+        pal = dict(zip(fg.TOKENS, fg.PALETTES[theme]))
+        chroma = lambda h: fg._lin2oklab(*fg._hex2lin(h))[1:]
+        c0 = chroma(card)
+        off = lambda h: tuple(x - y for x, y in zip(chroma(h), c0))
+        dot = lambda u, v: u[0] * v[0] + u[1] * v[1]
+        for r, end in ((0.0, "heat_lo"), (0.25, "heat_lo"), (0.75, "heat"), (1.0, "heat")):
+            other = "heat" if end == "heat_lo" else "heat_lo"
+            step = off(fg.heat_hex(r, theme))
+            assert dot(step, off(pal[end])) > 0, f"{theme} {r} does not lean to {end}"
+            assert dot(step, off(pal[other])) < 0, f"{theme} {r} leans towards {other}"
+        assert fg.heat_hex(fg.HEAT_MID, theme) == card, "the hinge is not the page background"
+
+
+def test_ramp_keeps_the_numeral_readable():
+    """4.5:1 at every step of both ends, in both themes -- the constraint HEAT_DEPTH is set by."""
+    from quadrat import figures as fg
+    for theme in ("light", "dark"):
+        assert fg._contrast_floor(theme) >= 4.5, (
+            f"{theme}: cell numerals fall to {fg._contrast_floor(theme):.2f}:1 on the ramp")

@@ -363,7 +363,13 @@ shape:
 * **heat map of the lever × objective grid** — one per carrier plus the pooled view, so a carrier
   effect reads as the same grid shifting rather than as a single number. The margins of the grid
   *are* the marginals: a row's mean recall is that lever's recall over the same hits and the same
-  n, so a separate section would restate it.
+  n, so a separate section would restate it. The scale **diverges** rather than deepening: a cell
+  greens as it is held and warms as it is open, with the page background itself at the hinge. A
+  cell's recall is not more or less of one thing — it is which of two opposite claims holds — and
+  a single ramp drew a grid of holes and a grid of walls in the same colour, differing only in how
+  dark they were. The pair is green against rust, not green against red: it has to survive
+  deuteranopia, and their lightness parts as well as their hue. The difference maps use the same
+  two, so "the good side" is one colour across the page.
 
 Plus, on the comparison page: the ranking bars, the recall-against-budget curve with a 95%
 uncertainty band on both axes, and one **winner grid per operating point** — who leads in each

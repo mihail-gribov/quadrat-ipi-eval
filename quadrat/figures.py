@@ -32,28 +32,39 @@ import math
 import pathlib
 import xml.etree.ElementTree as ET
 
-#: (ink, muted, line, card, accent, track, ci, heat) per theme.
+#: (ink, muted, line, card, accent, track, ci, heat, heat_lo) per theme.
 #: `card` is the page background, not a card colour. A figure is an <img> sitting on the report,
 #: so a surface even a shade off the page paints a visible rectangle around every diagram --
 #: in dark mode that panel edge was the first thing the eye landed on, before any data.
+#:
+#: `heat` and `heat_lo` are the two ends of the cell ramp: green where the cell is held, warm
+#: where it is open. NOT RED AND GREEN. The pair has to survive deuteranopia -- some 8% of male
+#: readers -- and red against green is the one pairing that does not, so the warm end is the rust
+#: already used for the diverging figures, whose lightness parts from the green as well as its
+#: hue. A reader who cannot separate the hues still reads the ramp as light against dark.
 PALETTES = {
     "light": ("#191919", "#78746c", "#e7e4dc", "#fbfaf7", "#8a5a2b", "#eceadf", "#d6cfc0",
-              "#184f95"),
+              "#2f6f4f", "#a33a2c"),
     "dark": ("#eceae2", "#98958c", "#2e2f27", "#141510", "#d4a373", "#26271f", "#42443a",
-             "#9ec5f4"),
+             "#4fcf8d", "#ff8f4d"),
 }
-TOKENS = ("ink", "mut", "line", "card", "accent", "track", "ci", "heat")
+TOKENS = ("ink", "mut", "line", "card", "accent", "track", "ci", "heat", "heat_lo")
 
 #: One canvas width for every figure, matched to the report's text column: figures of different
 #: widths stacked down a page read as a ragged edge before they read as data.
 WIDTH = 980
 
-#: Deepest mix of the heat hue under a cell's numeral: the numeral has to survive the dark end,
-#: and 50% is the measured limit at which every step still clears 4.5:1 in both themes -- a
+#: Deepest mix of a heat hue under a cell's numeral: the numeral has to survive both ends of the
+#: ramp, and 50% is the measured limit at which every step still clears 4.5:1 in both themes -- a
 #: deeper ramp needs a second ink colour, and switching ink mid-ramp reads as a category
-#: boundary the data does not have.
+#: boundary the data does not have. `_contrast_floor` asserts it; the test is in `tests/`.
 HEAT_DEPTH = 50
 HEAT_STEPS = 21
+
+#: Recall the ramp calls neither held nor open. Not a measured constant -- half the cell caught is
+#: the only point on the axis that is nobody's claim, and a midpoint chosen from the data would
+#: move every time a detector was added.
+HEAT_MID = 0.5
 
 #: Eight lines that stay apart in both themes and survive the common colour-blindness types.
 #: Assigned by position, so a detector keeps its colour across every figure on the page.
@@ -97,12 +108,48 @@ def _oklab2lin(L, a, b):
 
 
 def heat_hex(r, theme):
-    """The ramp step for rate `r`, as literal hex -- the mix the CSS would make, made here."""
-    _, _, _, card, _, _, _, hue = PALETTES[theme]
-    a, b = _lin2oklab(*_hex2lin(hue)), _lin2oklab(*_hex2lin(card))
-    f = max(0.0, min(1.0, r)) * HEAT_DEPTH / 100
+    """The ramp step for rate `r`, as literal hex -- the mix the CSS would make, made here.
+
+    DIVERGING, NOT SEQUENTIAL, and the reason is what a cell means. A cell's recall is not a
+    quantity that is simply more or less of something: it says whether that corner of the grid is
+    held or open, and those are opposite claims with a hinge between them. On the old single ramp
+    the whole difference between a cell nothing catches and a cell caught nine times in ten was
+    depth of the same blue, so a grid of holes and a grid of walls had the same colour and
+    differed only in how dark it was. Here `HEAT_MID` is the hinge: above it the cell greens,
+    below it it warms, and the sign is legible before any numeral is read.
+
+    The midpoint is the page background exactly. A cell sitting at the hinge SHOULD be the
+    quietest thing on the grid -- it is the one recall that makes no claim -- and a tint kept
+    there for the sake of visibility would be a claim drawn in colour."""
+    pal = dict(zip(TOKENS, PALETTES[theme]))
+    hue = pal["heat"] if r >= HEAT_MID else pal["heat_lo"]
+    # Distance from the hinge, rescaled so each side reaches full depth at its own end of the
+    # axis: the two sides are not the same width whenever HEAT_MID is not a half.
+    span = (1 - HEAT_MID) if r >= HEAT_MID else HEAT_MID
+    d = abs(max(0.0, min(1.0, r)) - HEAT_MID) / span if span else 0.0
+    a, b = _lin2oklab(*_hex2lin(hue)), _lin2oklab(*_hex2lin(pal["card"]))
+    f = d * HEAT_DEPTH / 100
     return "#%02x%02x%02x" % tuple(
         _l2s(v) for v in _oklab2lin(*[x * f + y * (1 - f) for x, y in zip(a, b)]))
+
+
+def _relative_luminance(hexc):
+    r, g, b = _hex2lin(hexc)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast(fg_hex, bg_hex):
+    """WCAG contrast ratio. Here to be asserted against, not to be drawn with."""
+    a, b = _relative_luminance(fg_hex), _relative_luminance(bg_hex)
+    lo, hi = sorted((a, b))
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def _contrast_floor(theme):
+    """The worst ratio the cell numeral has anywhere on the ramp. Both ends, every step."""
+    ink = dict(zip(TOKENS, PALETTES[theme]))["ink"]
+    return min(contrast(ink, heat_hex(i / (HEAT_STEPS - 1), theme))
+               for i in range(HEAT_STEPS))
 
 
 # --------------------------------------------------------------------------- svg scaffolding
@@ -136,6 +183,7 @@ BASE_CSS = (
     # the track, against the fill, and in both themes.
     ".ci{stroke:var(--ink);stroke-width:1.5;stroke-linecap:butt;opacity:0.55}"
     ".fill{fill:var(--accent)}"
+    ".cell{stroke:var(--line);stroke-width:1}"
     ".cellv{font-size:10px;fill:var(--ink);font-variant-numeric:tabular-nums}"
     ".na{font-size:11px;fill:var(--mut)}"
 )
@@ -300,7 +348,11 @@ def heat(cells, fams, acts, title, sub="", theme="auto", lab_w=136, w=WIDTH,
                     continue
                 step = round(max(0.0, min(1.0, hv["recall"])) * (HEAT_STEPS - 1))
                 ci = hv.get("ci") or (0, 0)
-                P.append(f'<rect class="h{step}" x="{hx + (0.5 if hi_ else 0):.1f}" '
+                # THE HAIRLINE IS NOT DECORATION. At the hinge the fill IS the page, and without
+                # an edge a cell measured at exactly the midpoint looks like the empty space
+                # around a cell that the grid does not admit -- two different statements drawn
+                # the same way. The border is what keeps "measured, and neither" a tile.
+                P.append(f'<rect class="h{step} cell" x="{hx + (0.5 if hi_ else 0):.1f}" '
                          f'y="{y + CELL_GAP / 2:.1f}" width="{iw_ - (1 if len(halves) > 1 else 0):.1f}" '
                          f'height="{CELL_H - CELL_GAP:.0f}" '
                          f'rx="{2 if len(halves) > 1 else 3}">'
@@ -347,9 +399,15 @@ def _marg(P, x, y, cw, hits, n, name, whole=False):
 
 
 #: A diverging pair: two hues that read as opposite sides of nothing, with a neutral middle.
-#: Not the sequential ramp -- a difference has a sign, and a scale without a midpoint would put
-#: "no difference" somewhere along a gradient instead of at a colour of its own.
-DIFF_POS = "#184f95"     # the subject is ahead
+#: A difference has a sign, and a scale without a midpoint would put "no difference" somewhere
+#: along a gradient instead of at a colour of its own.
+#:
+#: THE SAME PAIR AS THE CELL RAMP, and it used to be a different one -- blue for ahead against
+#: the grid's green for held. Two figures on one page, both saying "this is the good side", in
+#: two colours: a reader who learned the grid had to learn the difference map separately. These
+#: are theme-independent, so they are the mid-lightness members of the pair rather than either
+#: palette's endpoints.
+DIFF_POS = "#2f6f4f"     # the subject is ahead
 DIFF_NEG = "#a33a2c"     # the comparison is ahead
 DIFF_MID = "#9a978f"     # within noise
 
