@@ -13,7 +13,7 @@ abstract: >-
   saved, so any other operating point or slice can be re-derived without running anything again.
 authors:
   - family-names: Gribov
-    given-names: Mihail
+    given-names: Mikhail
     orcid: null
 repository-code: https://github.com/mihail-gribov/quadrat-ipi-eval
 license: Apache-2.0
@@ -29,7 +29,7 @@ references:
     title: "Quadrat-IPI: an evaluation dataset for indirect prompt-injection detectors, on a fixed lever x objective grid"
     authors:
       - family-names: Gribov
-        given-names: Mihail
+        given-names: Mikhail
     year: 2026
     url: https://huggingface.co/datasets/mihailgribov/quadrat-ipi
     notes: >-
